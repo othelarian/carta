@@ -1,0 +1,104 @@
+-
+  var width = step * dim;
+  var height = step * dim;
+  var svg_width = size.x * width;
+  var svg_height = size.y * height;
+  function floorpath(block) {
+    pts = block.map((curr, idx) =>
+      ((idx == 0)? "M":"L") + (curr[0]*dim) + " " + (curr[1]*dim)
+    );
+    return pts.join(" ");
+  }
+  function rotate(dir) {
+    var a = 0, tx = 0, ty = 0;
+    switch (dir) {
+      case 'W': a = -90; tx = -width; break;
+      case 'E': a = 90; ty = -height; break;
+      case 'S': a = 180; tx = -width; ty = -height; break;
+    }
+    return 'rotate(' + a + ') translate('+ tx + ',' + ty +')';
+  }
+
+mixin wall_line(start, end, thickness, color)
+  line(
+    x1=start[0]*dim,y1=start[1]*dim
+    x2=end[0]*dim,y2=end[1]*dim
+    stroke-width=thickness
+    stroke=color
+  )
+
+mixin wall(cfg, wall)
+  -
+    var thk = 4;
+    var col = "black";
+    //
+    //
+    //
+  if wall.hasOwnProperty('door')
+    //
+    line(
+      x1=wall.start[0]*dim,y1=wall.start[1]*dim
+    )
+    //
+    line(
+      x2=wall.end[0]*dim,y2=wall.end[1]*dim
+    )
+    //
+  else
+    +wall_line(wall.start, wall.end, thk, col)
+
+mixin tile(tile, cfg, i, j)
+  -
+    var r = (tile.hasOwnProperty('rot'))? rotate(tile.rot) : '';
+    var brd_col = (cfg.hasOwnProperty('border_col'))?
+      cfg.border_col : border_col;
+    var brd_thk = (cfg.hasOwnProperty('border_thk'))?
+      cfg.border_thk : border_thk;
+    var flr_col = '', flr_col_uniq = true;
+    if (cfg.hasOwnProperty('floor_col')) {
+      switch (typeof cfg.floor_col) {
+        case "string": flr_col = cfg.floor_col; break;
+        case 'object':
+          flr_col_uniq = false;
+          flr_col = cfg.floors.map((_e, idx) =>
+            (cfg.floor_col.hasOwnProperty(idx))?
+              cfg.floor_col[idx] : floor_col
+          );
+          break;
+      }
+    } else { flr_col = floor_col; }
+  g(transform='translate(' + (j*width) + ',' + (i*height) + ")")
+    g(transform=r)
+      // floor
+      for block, i in cfg.floors
+        path(
+          d=floorpath(block)
+          fill= (flr_col_uniq)? flr_col : flr_col[i]
+        )
+      // grid
+      for line in grid
+        line(
+          x1=line[0][0]*dim,y1=line[0][1]*dim
+          x2=line[1][0]*dim,y2=line[1][1]*dim
+          stroke=brd_col 
+          stroke-width=brd_thk
+        )
+      // walls
+      for wall in cfg.walls
+        +wall(cfg, wall)
+
+svg(
+  xmlns="http://www.w3.org/2000/svg"
+  width=svg_width
+  height=svg_height
+  viewBox="0 0 " + svg_width + " " + svg_height
+)
+  rect(x=0,y=0,width=svg_width,height=svg_height,fill=back_col)
+  for line, i in tiles
+    for tile, j in line
+      case tile.type
+        when 'none'
+          - break;
+        default
+          - var cfg = custom[tile.type]
+          +tile(tile, cfg, i, j)

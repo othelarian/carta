@@ -1,0 +1,72 @@
+# REQUIRES #################################################
+
+require! fs
+
+# FUNCTIONS ################################################
+
+compile-map = (opts, cb) !-->
+  console.log "generating the map '#{opts.file}'"
+  require! pug
+  max-depth = (tiles) ->
+    depth = 0
+    for line in tiles
+      if line.length > depth then depth = line.length
+    depth
+  try
+    defs = require \./data/default.ls
+    cfg = require "./data/#{opts.file}" .cfg
+    cfg.size =
+      x: max-depth cfg.tiles
+      y: cfg.tiles.length
+    for key, val of defs.defs then unless cfg[key]? then cfg[key] = val
+    for line, idl in cfg.tiles then for tile, idt in line
+      switch
+        | tile.type in Object.keys defs.tiles
+          cfg.custom[tile.type] = defs.tiles[tile.type]
+        | tile.type in Object.keys cfg.custom
+          unless cfg.custom[tile.type].floors?
+            cfg.custom[tile.type].floors = defs.floors.default
+          unless cfg.custom[tile.type].walls?
+            cfg.custom[tile.type].walls = defs.walls.default
+    r = pug.renderFile \src/index.pug, cfg
+    fs.writeFileSync "maps/#{opts.file}.svg", r
+    if opts.img
+      require(\sharp)("maps/#{opts.file}.svg")
+        .toFile "imgs/#{opts.file}.png"
+    cb void 3
+  catch
+    cb e
+
+create-dir = (pth, cb) !-->
+  fs.mkdir pth, (err) !->
+    if err?
+      if err.code is \EEXIST then cb void 2 else cb err
+    else cb void 1
+
+# OPTIONS ##################################################
+
+option \data, \d, \String,  'load the data specified'
+option \img,  \i, \Boolean, 'generate an image too'
+
+# TASKS ####################################################
+
+task \clean, '', !->
+  fs.rmSync \./maps { recursive: yes, force: yes }
+  fs.rmSync \./imgs { recursive: yes, force: yes }
+
+task \generate, '', (opts) !->
+  lst = fs.readdirSync \./data .map (f) -> f.split \. .0
+  switch
+    | not opts.data?
+      console.log 'Use the option `data` to specify which map to gen'
+    | opts.data not in lst
+      console.log 'please enter the name of the file in `data`'
+      console.log '(without the .ls)'
+    | otherwise
+      require! bach
+      map-opts = file: opts.data, img: opts.img?
+      actions =
+        create-dir \./maps
+        compile-map map-opts
+      if opts.img? then actions.splice 1 0 (create-dir \./imgs)
+      (bach.series actions) (err) !-> if err? then console.log err
