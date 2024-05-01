@@ -29,21 +29,22 @@ mixin wall_line(start, end, thickness, color)
 
 mixin wall(cfg, wall)
   -
-    var thk = 4;
-    var col = "black";
-    //
-    //
-    //
+    var col = wall_col;
+    if (wall.hasOwnProperty('col')) { col = wall.col; }
+    else if (cfg.hasOwnProperty('wall_col')) { col = cfg.wall_col; }
+    var thk = wall_thk;
+    if (wall.hasOwnProperty('thick')) { thk = wall.thick; }
+    else if (cfg.hasOwnProperty('wall_thk')) { thk = cfg.wall_thk; }
   if wall.hasOwnProperty('door')
-    //
-    line(
-      x1=wall.start[0]*dim,y1=wall.start[1]*dim
-    )
-    //
-    line(
-      x2=wall.end[0]*dim,y2=wall.end[1]*dim
-    )
-    //
+    -
+      var x = wall.end[0] - wall.start[0];
+      var y = wall.end[1] - wall.start[1];
+      var lgth = Math.sqrt(Math.abs(x * x) + Math.abs(y * y));
+      var perc = (1 - (wall.door / (lgth * dim))) / 2;
+      var dx = x * perc;
+      var dy = y * perc;
+    +wall_line(wall.start, [wall.start[0] + dx,wall.start[1] + dy], thk, col)
+    +wall_line([wall.end[0] - dx,wall.end[1] - dy], wall.end, thk, col)
   else
     +wall_line(wall.start, wall.end, thk, col)
 
